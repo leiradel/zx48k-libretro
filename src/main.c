@@ -413,6 +413,8 @@ static uint64_t zx48k_cpu1_register_get(hc_DebuggerIf const* debugger_if, unsign
         case 12: return z80_r(&zx48k.zx.cpu);
         case 13: return z80_sp(&zx48k.zx.cpu);
         case 14: return z80_pc(&zx48k.zx.cpu);
+        case 15: return z80_iff1(&zx48k.zx.cpu) << 7 | z80_iff2(&zx48k.zx.cpu) << 6;
+        case 16: return z80_wz(&zx48k.zx.cpu);
     }
 
     return 0;
@@ -437,69 +439,81 @@ static void zx48k_cpu1_register_set(hc_DebuggerIf const* debugger_if, unsigned i
         case 12: z80_set_r(&zx48k.zx.cpu, value); break;
         case 13: z80_set_sp(&zx48k.zx.cpu, value); break;
         case 14: z80_set_pc(&zx48k.zx.cpu, value); break;
+        case 15: z80_set_iff1(&zx48k.zx.cpu, (value & 128) != 0); z80_set_iff2(&zx48k.zx.cpu, (value & 64) != 0); break;
+        case 16: z80_set_wz(&zx48k.zx.cpu, value); break;
     }
 }
 
 static hc_Register const zx48k_cpu1_register_a = {
-    "a", 1, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "A", HC_SIZE_1, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
 };
 
 static char const* const zx48k_cpu1_register_f_bits[] = {"S", "Z", "Y", "H", "X", "PV", "N", "C"};
 
 static hc_Register const zx48k_cpu1_register_f = {
-    "f", 1, zx48k_cpu1_register_get, zx48k_cpu1_register_f_bits, zx48k_cpu1_register_set
+    "F", HC_SIZE_1, zx48k_cpu1_register_get, zx48k_cpu1_register_f_bits, zx48k_cpu1_register_set
 };
 
 static hc_Register const zx48k_cpu1_register_bc = {
-    "bc", 2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "BC", HC_SIZE_2 | HC_MEMORY_POINTER, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
 };
 
 static hc_Register const zx48k_cpu1_register_de = {
-    "de", 2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "DE", HC_SIZE_2 | HC_MEMORY_POINTER, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
 };
 
 static hc_Register const zx48k_cpu1_register_hl = {
-    "hl", 2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "HL", HC_SIZE_2 | HC_MEMORY_POINTER, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
 };
 
 static hc_Register const zx48k_cpu1_register_ix = {
-    "ix", 2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "IX", HC_SIZE_2 | HC_MEMORY_POINTER, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
 };
 
 static hc_Register const zx48k_cpu1_register_iy = {
-    "iy", 2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "IY", HC_SIZE_2 | HC_MEMORY_POINTER, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
 };
 
 static hc_Register const zx48k_cpu1_register_af_ = {
-    "af'", 2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "AF'", HC_SIZE_2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
 };
 
 static hc_Register const zx48k_cpu1_register_bc_ = {
-    "bc'", 2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "BC'", HC_SIZE_2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
 };
 
 static hc_Register const zx48k_cpu1_register_de_ = {
-    "de'", 2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "DE'", HC_SIZE_2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
 };
 
 static hc_Register const zx48k_cpu1_register_hl_ = {
-    "hl'", 2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "HL'", HC_SIZE_2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
 };
 
 static hc_Register const zx48k_cpu1_register_i = {
-    "i", 1, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "I", HC_SIZE_1, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
 };
 
 static hc_Register const zx48k_cpu1_register_r = {
-    "r", 1, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "R", HC_SIZE_1, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
 };
 
 static hc_Register const zx48k_cpu1_register_sp = {
-    "sp", 2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "SP", HC_SIZE_2 | HC_STACK_POINTER, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
 };
 
 static hc_Register const zx48k_cpu1_register_pc = {
-    "pc", 2, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+    "PC", HC_SIZE_2 | HC_PROGRAM_COUNTER, zx48k_cpu1_register_get, NULL, zx48k_cpu1_register_set
+};
+
+static char const* const zx48k_cpu1_register_iff_bits[] = {"IFF1", "IFF2", NULL};
+
+static hc_Register const zx48k_cpu1_register_iff = {
+    "IFF", HC_SIZE_1, zx48k_cpu1_register_get, zx48k_cpu1_register_iff_bits, zx48k_cpu1_register_set
+};
+
+static hc_Register const zx48k_cpu1_register_wz = {
+    "WZ", HC_SIZE_2, zx48k_cpu1_register_get, NULL, NULL
 };
 
 static hc_Register const* const zx48k_cpu1_registers[] = {
@@ -517,7 +531,9 @@ static hc_Register const* const zx48k_cpu1_registers[] = {
     &zx48k_cpu1_register_i,
     &zx48k_cpu1_register_r,
     &zx48k_cpu1_register_sp,
-    &zx48k_cpu1_register_pc
+    &zx48k_cpu1_register_pc,
+    &zx48k_cpu1_register_iff,
+    &zx48k_cpu1_register_wz
 };
 
 static uint8_t zx48k_cpu1_region_peek(hc_DebuggerIf const* debugger_if, unsigned index, uint64_t address) {
@@ -545,7 +561,7 @@ static void zx48k_cpu1_region_poke(hc_DebuggerIf const* debugger_if, unsigned in
 }
 
 static hc_Memory const zx48k_cpu1_region1 = {
-    {"Main", 0, 65536, 1, zx48k_cpu1_region_peek, zx48k_cpu1_region_poke, NULL}
+    {"Main", 0, 65536, HC_ALIGNMENT_1 | HC_CPU_ADDRESSABLE, zx48k_cpu1_region_peek, zx48k_cpu1_region_poke, NULL}
 };
 
 static hc_Memory const* const zx48k_cpu1_regions[] = {
