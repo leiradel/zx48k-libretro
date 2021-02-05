@@ -678,7 +678,7 @@ static void zx48k_cpu1_region1_poke(void* user_data, uint64_t address, uint8_t v
 }
 
 static hc_Memory const zx48k_cpu1_region1 = {
-    {"Main", 0, 65536, HC_ALIGNMENT_1 | HC_CPU_ADDRESSABLE, zx48k_cpu1_region1_peek, zx48k_cpu1_region1_poke, NULL}
+    {"Main", HC_ALIGNMENT_1 | HC_CPU_ADDRESSABLE, 0, 65536, zx48k_cpu1_region1_peek, zx48k_cpu1_region1_poke, NULL}
 };
 
 static hc_Memory const* const zx48k_cpu1_regions[] = {
@@ -704,7 +704,7 @@ static void zx48k_cpu1_step_into(void* user_data) {
 }
 
 static hc_Cpu const zx48k_cpu1 = {
-    HC_Z80, "Main CPU",
+    HC_Z80, "Main CPU", HC_CPU_MAIN,
     zx48k_cpu1_registers, sizeof(zx48k_cpu1_registers) / sizeof(zx48k_cpu1_registers[0]),
     zx48k_cpu1_regions, sizeof(zx48k_cpu1_regions) / sizeof(zx48k_cpu1_regions[0]),
     zx48k_cpu1_pause, zx48k_cpu1_resume, zx48k_cpu1_step_into, NULL, NULL,

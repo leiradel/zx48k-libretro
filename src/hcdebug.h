@@ -46,9 +46,9 @@ hc_Register;
 typedef struct {
     struct {
         char const* description;
+        uint64_t flags;
         uint64_t base_address;
         uint64_t size;
-        uint64_t flags;
         uint8_t (*peek)(void* user_data, uint64_t address);
 
         /* poke can be null for read-only memory but all memory should be writeable to allow patching */
@@ -67,10 +67,16 @@ typedef enum {
 }
 hc_CpuType;
 
+typedef enum {
+    HC_CPU_MAIN = 1 << 0
+}
+hc_CpuFlags;
+
 typedef struct {
     struct {
         hc_CpuType type;
         char const* description;
+        uint64_t flags;
         hc_Register const* const* registers;
         unsigned num_registers;
         hc_Memory const* const* memory_regions;
