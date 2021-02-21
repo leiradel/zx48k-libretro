@@ -41,7 +41,6 @@ typedef struct {
 
     /* Debugger */
     hc_DebuggerIf* debugger_if;
-    int stepping;
     uint32_t this_frame_ticks;
 }
 zx48k_t;
@@ -105,7 +104,6 @@ static void zx48k_reset(void) {
         }
     }
 
-    zx48k.stepping = 0;
     zx48k.this_frame_ticks = ZX48K_TICKS_PER_FRAME;
 }
 
@@ -132,8 +130,6 @@ static bool zx48k_load(void const* const data, size_t const size) {
                 memcpy(copy, data, size);
                 zx48k.data = copy;
                 zx48k.size = size;
-
-                zx48k.stepping = 0;
                 zx48k.this_frame_ticks = ZX48K_TICKS_PER_FRAME;
             }
         }
@@ -685,29 +681,16 @@ static hc_Memory const* const zx48k_cpu1_regions[] = {
     &zx48k_cpu1_region1
 };
 
-static void zx48k_cpu1_pause(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    self->stepping = 1;
-}
-
-static void zx48k_cpu1_resume(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    self->stepping = 0;
-}
-
 static void zx48k_cpu1_step_into(void* user_data) {
     zx48k_t* const self = (zx48k_t*)user_data;
-
-    if (self->stepping) {
-        zx48k_step_into();
-    }
+    zx48k_step_into();
 }
 
 static hc_Cpu const zx48k_cpu1 = {
     HC_Z80, "Main CPU", HC_CPU_MAIN,
     zx48k_cpu1_registers, sizeof(zx48k_cpu1_registers) / sizeof(zx48k_cpu1_registers[0]),
     zx48k_cpu1_regions, sizeof(zx48k_cpu1_regions) / sizeof(zx48k_cpu1_regions[0]),
-    zx48k_cpu1_pause, zx48k_cpu1_resume, zx48k_cpu1_step_into, NULL, NULL,
+    zx48k_cpu1_step_into, NULL, NULL,
     NULL
 };
 
