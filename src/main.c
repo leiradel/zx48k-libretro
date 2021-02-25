@@ -52,10 +52,10 @@ static void dummy_log(enum retro_log_level const level, char const* const fmt, .
     (void)fmt;
 }
 
-static void zx48k_audio_cb(float const* const samples, int const num_samples, void* const user_data) {
+static void zx48k_audio_cb(float const* const samples, int const num_samples, void* const ud) {
     static int16_t pcm16[ZX_MAX_AUDIO_SAMPLES * 2];
 
-    (void)user_data;
+    (void)ud;
 
     for (int i = 0, j = 0; i < num_samples; i++, j += 2) {
         float sample = samples[i];
@@ -163,6 +163,8 @@ static retro_proc_address_t zx48k_get_proc(char const* const symbol) {
     if (!strcmp(symbol, "hc_set_debuggger")) {
         return (retro_proc_address_t)hc_set_debuggger;
     }
+
+    return NULL;
 }
 
 void retro_set_environment(retro_environment_t const cb) {
@@ -390,267 +392,8 @@ size_t retro_get_memory_size(unsigned const id) {
     return 0;
 }
 
-static uint64_t zx48k_cpu1_register_get_a(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_a(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_a(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_a(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_a = {
-    "A", HC_SIZE_1, zx48k_cpu1_register_get_a, zx48k_cpu1_register_set_a, NULL
-};
-
-static char const* const zx48k_cpu1_register_f_bits[] = {"S", "Z", "Y", "H", "X", "PV", "N", "C"};
-
-static uint64_t zx48k_cpu1_register_get_f(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_f(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_f(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_f(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_f = {
-    "F", HC_SIZE_1, zx48k_cpu1_register_get_f, zx48k_cpu1_register_set_f, zx48k_cpu1_register_f_bits
-};
-
-static uint64_t zx48k_cpu1_register_get_bc(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_bc(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_bc(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_bc(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_bc = {
-    "BC", HC_SIZE_2 | HC_MEMORY_POINTER, zx48k_cpu1_register_get_bc, zx48k_cpu1_register_set_bc, NULL
-};
-
-static uint64_t zx48k_cpu1_register_get_de(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_de(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_de(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_de(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_de = {
-    "DE", HC_SIZE_2 | HC_MEMORY_POINTER, zx48k_cpu1_register_get_de, zx48k_cpu1_register_set_de, NULL
-};
-
-static uint64_t zx48k_cpu1_register_get_hl(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_hl(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_hl(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_hl(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_hl = {
-    "HL", HC_SIZE_2 | HC_MEMORY_POINTER, zx48k_cpu1_register_get_hl, zx48k_cpu1_register_set_hl, NULL
-};
-
-static uint64_t zx48k_cpu1_register_get_ix(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_ix(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_ix(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_ix(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_ix = {
-    "IX", HC_SIZE_2 | HC_MEMORY_POINTER, zx48k_cpu1_register_get_ix, zx48k_cpu1_register_set_ix, NULL
-};
-
-static uint64_t zx48k_cpu1_register_get_iy(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_iy(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_iy(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_iy(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_iy = {
-    "IY", HC_SIZE_2 | HC_MEMORY_POINTER, zx48k_cpu1_register_get_iy, zx48k_cpu1_register_set_iy, NULL
-};
-
-static uint64_t zx48k_cpu1_register_get_af_(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_af_(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_af_(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_af_(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_af_ = {
-    "AF'", HC_SIZE_2, zx48k_cpu1_register_get_af_, zx48k_cpu1_register_set_af_, NULL
-};
-
-static uint64_t zx48k_cpu1_register_get_bc_(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_bc_(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_bc_(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_bc_(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_bc_ = {
-    "BC'", HC_SIZE_2, zx48k_cpu1_register_get_bc_, zx48k_cpu1_register_set_bc_, NULL
-};
-
-static uint64_t zx48k_cpu1_register_get_de_(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_de_(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_de_(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_de_(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_de_ = {
-    "DE'", HC_SIZE_2, zx48k_cpu1_register_get_de_, zx48k_cpu1_register_set_de_, NULL
-};
-
-static uint64_t zx48k_cpu1_register_get_hl_(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_hl_(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_hl_(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_hl_(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_hl_ = {
-    "HL'", HC_SIZE_2, zx48k_cpu1_register_get_hl_, zx48k_cpu1_register_set_hl_, NULL
-};
-
-static uint64_t zx48k_cpu1_register_get_i(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_i(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_i(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_i(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_i = {
-    "I", HC_SIZE_1, zx48k_cpu1_register_get_i, zx48k_cpu1_register_set_i, NULL
-};
-
-static uint64_t zx48k_cpu1_register_get_r(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_r(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_r(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_r(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_r = {
-    "R", HC_SIZE_1, zx48k_cpu1_register_get_r, zx48k_cpu1_register_set_r, NULL
-};
-
-static uint64_t zx48k_cpu1_register_get_sp(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_sp(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_sp(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_sp(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_sp = {
-    "SP", HC_SIZE_2 | HC_STACK_POINTER, zx48k_cpu1_register_get_sp, zx48k_cpu1_register_set_sp, NULL
-};
-
-static uint64_t zx48k_cpu1_register_get_pc(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_pc(&zx48k.zx.cpu);
-}
-
-static void zx48k_cpu1_register_set_pc(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    z80_set_pc(&zx48k.zx.cpu, value);
-}
-
-static hc_Register const zx48k_cpu1_register_pc = {
-    "PC", HC_SIZE_2 | HC_PROGRAM_COUNTER, zx48k_cpu1_register_get_pc, zx48k_cpu1_register_set_pc, NULL
-};
-
-static uint64_t zx48k_cpu1_register_iff_get(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_iff1(&self->zx.cpu) << 7 | z80_iff2(&self->zx.cpu) << 6;
-}
-
-static void zx48k_cpu1_register_iff_set(void* user_data, uint64_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-
-    z80_set_iff1(&self->zx.cpu, (value & 128) != 0);
-    z80_set_iff2(&self->zx.cpu, (value & 64) != 0);
-}
-
-static char const* const zx48k_cpu1_register_iff_bits[] = {"IFF1", "IFF2", NULL};
-
-static hc_Register const zx48k_cpu1_register_iff = {
-    "IFF", HC_SIZE_1, zx48k_cpu1_register_iff_get, zx48k_cpu1_register_iff_set, zx48k_cpu1_register_iff_bits
-};
-
-static uint64_t zx48k_cpu1_register_get_wz(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
-    return z80_wz(&zx48k.zx.cpu);
-}
-
-static hc_Register const zx48k_cpu1_register_wz = {
-    "WZ", HC_SIZE_2, zx48k_cpu1_register_get_wz, NULL, NULL
-};
-
-static hc_Register const* const zx48k_cpu1_registers[] = {
-    &zx48k_cpu1_register_a,
-    &zx48k_cpu1_register_f,
-    &zx48k_cpu1_register_bc,
-    &zx48k_cpu1_register_de,
-    &zx48k_cpu1_register_hl,
-    &zx48k_cpu1_register_ix,
-    &zx48k_cpu1_register_iy,
-    &zx48k_cpu1_register_af_,
-    &zx48k_cpu1_register_bc_,
-    &zx48k_cpu1_register_de_,
-    &zx48k_cpu1_register_hl_,
-    &zx48k_cpu1_register_i,
-    &zx48k_cpu1_register_r,
-    &zx48k_cpu1_register_sp,
-    &zx48k_cpu1_register_pc,
-    &zx48k_cpu1_register_iff,
-    &zx48k_cpu1_register_wz
-};
-
-static uint8_t zx48k_cpu1_region1_peek(void* user_data, uint64_t address) {
-    zx48k_t* const self = (zx48k_t*)user_data;
+static uint8_t zx48k_cpu1_region1_peek(void* ud, uint64_t address) {
+    zx48k_t* const self = (zx48k_t*)ud;
 
     switch (address >> 14) {
         case 0: return self->zx.rom[0][address & 0x3fff];
@@ -662,8 +405,8 @@ static uint8_t zx48k_cpu1_region1_peek(void* user_data, uint64_t address) {
     return 0;
 }
 
-static void zx48k_cpu1_region1_poke(void* user_data, uint64_t address, uint8_t value) {
-    zx48k_t* const self = (zx48k_t*)user_data;
+static void zx48k_cpu1_region1_poke(void* ud, uint64_t address, uint8_t value) {
+    zx48k_t* const self = (zx48k_t*)ud;
 
     switch (address >> 14) {
         case 0: self->zx.rom[0][address & 0x3fff] = value; break;
@@ -673,25 +416,78 @@ static void zx48k_cpu1_region1_poke(void* user_data, uint64_t address, uint8_t v
     }
 }
 
-static hc_Memory const zx48k_cpu1_region1 = {
-    {"Main", HC_ALIGNMENT_1 | HC_CPU_ADDRESSABLE, 0, 65536, zx48k_cpu1_region1_peek, zx48k_cpu1_region1_poke, NULL}
+static hc_Memory const zx48k_cpu1_region = {
+    /* description, alignment, base_address, size */
+    "Main", 1, 0, 65536,
+    /* peek, poke, set_watchpoint */
+    zx48k_cpu1_region1_peek, zx48k_cpu1_region1_poke, NULL,
+    /* break_points, num_break_points */
+    NULL, 0
 };
 
-static hc_Memory const* const zx48k_cpu1_regions[] = {
-    &zx48k_cpu1_region1
-};
+static uint64_t zx48k_cpu1_get_register(void* ud, unsigned reg) {
+    switch (reg) {
+        case HC_Z80_A: return z80_a(&zx48k.zx.cpu);
+        case HC_Z80_F: return z80_f(&zx48k.zx.cpu);
+        case HC_Z80_BC: return z80_bc(&zx48k.zx.cpu);
+        case HC_Z80_DE: return z80_de(&zx48k.zx.cpu);
+        case HC_Z80_HL: return z80_hl(&zx48k.zx.cpu);
+        case HC_Z80_IX: return z80_ix(&zx48k.zx.cpu);
+        case HC_Z80_IY: return z80_iy(&zx48k.zx.cpu);
+        case HC_Z80_AF2: return z80_af_(&zx48k.zx.cpu);
+        case HC_Z80_BC2: return z80_bc_(&zx48k.zx.cpu);
+        case HC_Z80_DE2: return z80_de_(&zx48k.zx.cpu);
+        case HC_Z80_HL2: return z80_hl_(&zx48k.zx.cpu);
+        case HC_Z80_I: return z80_i(&zx48k.zx.cpu);
+        case HC_Z80_R: return z80_r(&zx48k.zx.cpu);
+        case HC_Z80_SP: return z80_sp(&zx48k.zx.cpu);
+        case HC_Z80_PC: return z80_pc(&zx48k.zx.cpu);
+        case HC_Z80_IFF: return z80_iff1(&zx48k.zx.cpu) << 1 | z80_iff2(&zx48k.zx.cpu);
+        case HC_Z80_IM: return z80_im(&zx48k.zx.cpu);
+        case HC_Z80_WZ: return z80_wz(&zx48k.zx.cpu);
+    }
+}
 
-static void zx48k_cpu1_step_into(void* user_data) {
-    zx48k_t* const self = (zx48k_t*)user_data;
+static void zx48k_cpu1_set_register(void* ud, unsigned reg, uint64_t value) {
+    switch (reg) {
+        case HC_Z80_A: z80_set_a(&zx48k.zx.cpu, value); break;
+        case HC_Z80_F: z80_set_f(&zx48k.zx.cpu, value); break;
+        case HC_Z80_BC: z80_set_bc(&zx48k.zx.cpu, value); break;
+        case HC_Z80_DE: z80_set_de(&zx48k.zx.cpu, value); break;
+        case HC_Z80_HL: z80_set_hl(&zx48k.zx.cpu, value); break;
+        case HC_Z80_IX: z80_set_ix(&zx48k.zx.cpu, value); break;
+        case HC_Z80_IY: z80_set_iy(&zx48k.zx.cpu, value); break;
+        case HC_Z80_AF2: z80_set_af_(&zx48k.zx.cpu, value); break;
+        case HC_Z80_BC2: z80_set_bc_(&zx48k.zx.cpu, value); break;
+        case HC_Z80_DE2: z80_set_de_(&zx48k.zx.cpu, value); break;
+        case HC_Z80_HL2: z80_set_hl_(&zx48k.zx.cpu, value); break;
+        case HC_Z80_I: z80_set_i(&zx48k.zx.cpu, value); break;
+        case HC_Z80_R: z80_set_r(&zx48k.zx.cpu, value); break;
+        case HC_Z80_SP: z80_set_sp(&zx48k.zx.cpu, value); break;
+        case HC_Z80_PC: z80_set_pc(&zx48k.zx.cpu, value); break;
+        case HC_Z80_IFF: break;
+        case HC_Z80_IM: break;
+        case HC_Z80_WZ: break;
+    }
+}
+
+static void zx48k_cpu1_step_into(void* ud) {
     zx48k_step_into();
 }
 
 static hc_Cpu const zx48k_cpu1 = {
-    HC_Z80, "Main CPU", HC_CPU_MAIN,
-    zx48k_cpu1_registers, sizeof(zx48k_cpu1_registers) / sizeof(zx48k_cpu1_registers[0]),
-    zx48k_cpu1_regions, sizeof(zx48k_cpu1_regions) / sizeof(zx48k_cpu1_regions[0]),
+    /* description, type, is_main */
+    "Main CPU", HC_CPU_Z80, 1,
+    /* memory_region */
+    &zx48k_cpu1_region,
+    /* get_register, set_register, set_reg_breakpoint */
+    zx48k_cpu1_get_register, zx48k_cpu1_set_register, NULL,
+    /* step_into, step_over, step_out */
     zx48k_cpu1_step_into, NULL, NULL,
-    NULL
+    /* set_exec_breakpoint, set_io_watchpoint, set_int_breakpoint */
+    NULL, NULL, NULL,
+    /* break_points, num_break_points */
+    NULL, 0
 };
 
 static hc_Cpu const* zx48k_cpus[] = {
@@ -699,11 +495,19 @@ static hc_Cpu const* zx48k_cpus[] = {
 };
 
 static hc_System const zx48k_system = {
-    {"ZX Spectrum 48K", zx48k_cpus, sizeof(zx48k_cpus) / sizeof(zx48k_cpus[0]), NULL, 0, NULL, 0}
+    /* description */
+    "ZX Spectrum 48K",
+    /* cpus, num_cpus */
+    zx48k_cpus, sizeof(zx48k_cpus) / sizeof(zx48k_cpus[0]),
+    /* memory_regions, num_memory_regions */
+    NULL, 0,
+    /* break_points, num_break_points */
+    NULL, 0
 };
 
 static void* hc_set_debuggger(hc_DebuggerIf* const debugger_if) {
     zx48k.debugger_if = debugger_if;
+    debugger_if->core_api_version = HC_API_VERSION;
     debugger_if->v1.system = &zx48k_system;
     return &zx48k;
 }
