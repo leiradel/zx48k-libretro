@@ -150,7 +150,15 @@ static void zx48k_exec(uint32_t ticks_to_run) {
     }
 
     zx48k.this_frame_ticks -= ticks_executed;
-    zx48k.video_cb(zx48k.pixel_buffer, zx48k.width, zx48k.height, zx48k.width * 4);
+
+    uint32_t pixel_buffer[320 * 256];
+
+    for (size_t i = 0; i < sizeof(pixel_buffer) / sizeof(pixel_buffer[0]); i++) {
+        uint32_t const pixel = zx48k.pixel_buffer[i];
+        pixel_buffer[i] = (pixel & 0xff00ff00) | ((pixel & 0x00ff0000) >> 16) | ((pixel & 0x000000ff) << 16);
+    }
+
+    zx48k.video_cb(pixel_buffer, zx48k.width, zx48k.height, zx48k.width * 4);
 }
 
 static void zx48k_step_into(void) {
