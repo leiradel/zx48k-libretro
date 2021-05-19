@@ -417,8 +417,8 @@ static void zx48k_cpu1_region1_poke(void* ud, uint64_t address, uint8_t value) {
 }
 
 static hc_Memory const zx48k_cpu1_region = {
-    /* description, alignment, base_address, size */
-    "Main", 1, 0, 65536,
+    /* id, description, alignment, base_address, size */
+    "cpu", "Main", 1, 0, 65536,
     /* peek, poke, set_watchpoint */
     zx48k_cpu1_region1_peek, zx48k_cpu1_region1_poke, NULL,
     /* break_points, num_break_points */
