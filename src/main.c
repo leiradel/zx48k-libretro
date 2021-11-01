@@ -15,9 +15,8 @@
 #include "z80.h"
 #include "zx.h"
 
-#define ZX48K_CLOCK_HZ UINT64_C(3500000)
-#define ZX48K_US_PER_FRAME UINT64_C(20000)
-#define ZX48K_TICKS_PER_FRAME (ZX48K_CLOCK_HZ * ZX48K_US_PER_FRAME / 1000000)
+#define ZX48K_FRAMES_PER_SECOND 50U
+#define ZX48K_US_PER_FRAME (1000000U / ZX48K_FRAMES_PER_SECOND)
 
 typedef struct {
     /* The emulator */
@@ -38,10 +37,6 @@ typedef struct {
     retro_audio_sample_batch_t audio_cb;
     retro_input_poll_t input_poll_cb;
     retro_input_state_t input_state_cb;
-
-    /* Debugger */
-    hc_DebuggerIf* debugger_if;
-    uint32_t this_frame_ticks;
 }
 zx48k_t;
 
@@ -216,7 +211,7 @@ void retro_get_system_av_info(struct retro_system_av_info* const info) {
     info->geometry.max_width = zx48k.width;
     info->geometry.max_height = zx48k.height;
     info->geometry.aspect_ratio = 0.0f;
-    info->timing.fps = 50.0;
+    info->timing.fps = ZX48K_FRAMES_PER_SECOND;
     info->timing.sample_rate = 44100.0;
 }
 
@@ -322,8 +317,7 @@ void retro_run(void) {
 
     zx48k.key_states = current_key_states;
 
-    uint32_t const ticks_executed = z80_exec(&zx48k.zx.cpu, ZX48K_TICKS_PER_FRAME);
-    kbd_update(&zx48k.zx.kbd, ZX48K_US_PER_FRAME);
+    zx_exec(&zx48k.zx, ZX48K_US_PER_FRAME);
 
     uint32_t pixel_buffer[320 * 256];
 
@@ -489,8 +483,6 @@ static hc_System const hcsystem = {
 };
 
 static void* hc_set_debuggger(hc_DebuggerIf* const debugger_if) {
-    zx48k.debugger_if = debugger_if;
-
     debugger_if->core_api_version = HC_API_VERSION;
     debugger_if->v1.system = &hcsystem;
 
