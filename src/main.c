@@ -393,20 +393,24 @@ static uint8_t main_region_peek(uint64_t address) {
     return 0;
 }
 
-static void main_region_poke(uint64_t address, uint8_t value) {
+static int main_region_poke(uint64_t address, uint8_t value) {
     switch (address >> 14) {
         case 0: zx48k.zx.rom[0][address & 0x3fff] = value; break;
         case 1: zx48k.zx.ram[0][address & 0x3fff] = value; break;
         case 2: zx48k.zx.ram[1][address & 0x3fff] = value; break;
         case 3: zx48k.zx.ram[2][address & 0x3fff] = value; break;
     }
+
+    return 1;
 }
 
 static hc_Memory const main_region = {
     /* id, description, alignment, base_address, size */
     "cpu", "Main", 1, 0, 65536,
     /* break_points, num_break_points */
-    NULL, 0
+    NULL, 0,
+    /* functions */
+    main_region_peek, main_region_poke
 };
 
 static uint64_t main_get_register(unsigned reg) {
@@ -432,7 +436,7 @@ static uint64_t main_get_register(unsigned reg) {
     }
 }
 
-static void main_set_register(unsigned reg, uint64_t value) {
+static int main_set_register(unsigned reg, uint64_t value) {
     switch (reg) {
         case HC_Z80_A: z80_set_a(&zx48k.zx.cpu, value); break;
         case HC_Z80_F: z80_set_f(&zx48k.zx.cpu, value); break;
@@ -449,10 +453,13 @@ static void main_set_register(unsigned reg, uint64_t value) {
         case HC_Z80_R: z80_set_r(&zx48k.zx.cpu, value); break;
         case HC_Z80_SP: z80_set_sp(&zx48k.zx.cpu, value); break;
         case HC_Z80_PC: z80_set_pc(&zx48k.zx.cpu, value); break;
-        case HC_Z80_IFF: break;
-        case HC_Z80_IM: break;
-        case HC_Z80_WZ: break;
+
+        case HC_Z80_IFF:
+        case HC_Z80_IM:
+        case HC_Z80_WZ: return 0;
     }
+
+    return 1;
 }
 
 static hc_Cpu const main = {
@@ -461,7 +468,9 @@ static hc_Cpu const main = {
     /* memory_region */
     &main_region,
     /* break_points, num_break_points */
-    NULL, 0
+    NULL, 0,
+    /* functions */
+    main_get_register, main_set_register
 };
 
 static hc_Cpu const* cpus[] = {
@@ -479,46 +488,11 @@ static hc_System const hcsystem = {
     NULL, 0
 };
 
-static uint8_t peek(hc_Memory const* memory, uint64_t address) {
-    if (memory == &main_region) {
-        return main_region_peek(address);
-    }
-
-    return 0;
-}
-
-static int poke(hc_Memory const* memory, uint64_t address, uint8_t value) {
-    if (memory == &main_region) {
-        main_region_poke(address, value);
-        return 1;
-    }
-
-    return 0;
-}
-
-static uint64_t get_register(hc_Cpu const* cpu, unsigned reg) {
-    if (cpu == &main) {
-        return main_get_register(reg);
-    }
-
-    return 0;
-}
-
-static void set_register(hc_Cpu const* cpu, unsigned reg, uint64_t value) {
-    if (cpu == &main) {
-        main_set_register(reg, value);
-    }
-}
-
 static void* hc_set_debuggger(hc_DebuggerIf* const debugger_if) {
     zx48k.debugger_if = debugger_if;
 
     debugger_if->core_api_version = HC_API_VERSION;
-    debugger_if->system = &hcsystem;
-    debugger_if->v1.peek = peek;
-    debugger_if->v1.poke = poke;
-    debugger_if->v1.get_register = get_register;
-    debugger_if->v1.set_register = set_register;
+    debugger_if->v1.system = &hcsystem;
 
     return &zx48k;
 }
