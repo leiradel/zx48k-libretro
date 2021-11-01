@@ -103,8 +103,6 @@ static void zx48k_reset(void) {
             kbd_register_key(&zx48k.zx.kbd, code, col, row, 0);
         }
     }
-
-    zx48k.this_frame_ticks = ZX48K_TICKS_PER_FRAME;
 }
 
 static bool zx48k_load(void const* const data, size_t const size) {
@@ -117,22 +115,21 @@ static bool zx48k_load(void const* const data, size_t const size) {
     bool ok = true;
 
     if (data != NULL) {
-        ok = zx_quickload(&zx48k.zx, data, size);
-
-        if (ok) {
-            /* Copy the content since the frontend won't keep it around */
-            void* copy = malloc(size);
-
-            if (copy == NULL) {
-                zx48k.log_cb(RETRO_LOG_ERROR, "Error allocating memory for content, retro_reset won't reload the content");
-            }
-            else {
-                memcpy(copy, data, size);
-                zx48k.data = copy;
-                zx48k.size = size;
-                zx48k.this_frame_ticks = ZX48K_TICKS_PER_FRAME;
-            }
+        if (!zx_quickload(&zx48k.zx, data, size)) {
+            return false;
         }
+
+        /* Copy the content since the frontend won't keep it around */
+        void* copy = malloc(size);
+
+        if (copy == NULL) {
+            zx48k.log_cb(RETRO_LOG_ERROR, "Error allocating memory for content, retro_reset won't reload the content");
+            return false;
+        }
+
+        memcpy(copy, data, size);
+        zx48k.data = copy;
+        zx48k.size = size;
     }
     else {
         zx48k_reset();
@@ -141,34 +138,10 @@ static bool zx48k_load(void const* const data, size_t const size) {
     return ok;
 }
 
-static void zx48k_exec(uint32_t ticks_to_run) {
-    uint32_t const ticks_executed = z80_exec(&zx48k.zx.cpu, ticks_to_run);
-
-    if (ticks_executed >= zx48k.this_frame_ticks) {
-        zx48k.this_frame_ticks += ZX48K_TICKS_PER_FRAME;
-        kbd_update(&zx48k.zx.kbd, ZX48K_US_PER_FRAME);
-    }
-
-    zx48k.this_frame_ticks -= ticks_executed;
-
-    uint32_t pixel_buffer[320 * 256];
-
-    for (size_t i = 0; i < sizeof(pixel_buffer) / sizeof(pixel_buffer[0]); i++) {
-        uint32_t const pixel = zx48k.pixel_buffer[i];
-        pixel_buffer[i] = (pixel & 0xff00ff00) | ((pixel & 0x00ff0000) >> 16) | ((pixel & 0x000000ff) << 16);
-    }
-
-    zx48k.video_cb(pixel_buffer, zx48k.width, zx48k.height, zx48k.width * 4);
-}
-
-static void zx48k_step_into(void) {
-    zx48k_exec(1);
-}
-
 static void* hc_set_debuggger(hc_DebuggerIf* const debugger_if);
 
 static retro_proc_address_t zx48k_get_proc(char const* const symbol) {
-    if (!strcmp(symbol, "hc_set_debuggger")) {
+    if (!strcmp(symbol, "hc_set_debugger")) {
         return (retro_proc_address_t)hc_set_debuggger;
     }
 
@@ -230,7 +203,7 @@ unsigned retro_api_version() {
 }
 
 void retro_get_system_info(struct retro_system_info* const info) {
-    info->library_name = "Chips";
+    info->library_name = "zx48k";
     info->library_version = "0.0.1";
     info->need_fullpath = false;
     info->block_extract = false;
@@ -349,8 +322,17 @@ void retro_run(void) {
 
     zx48k.key_states = current_key_states;
 
-    /* Run until the end of the frame */
-    zx48k_exec(zx48k.this_frame_ticks);
+    uint32_t const ticks_executed = z80_exec(&zx48k.zx.cpu, ZX48K_TICKS_PER_FRAME);
+    kbd_update(&zx48k.zx.kbd, ZX48K_US_PER_FRAME);
+
+    uint32_t pixel_buffer[320 * 256];
+
+    for (size_t i = 0; i < sizeof(pixel_buffer) / sizeof(pixel_buffer[0]); i++) {
+        uint32_t const pixel = zx48k.pixel_buffer[i];
+        pixel_buffer[i] = (pixel & 0xff00ff00) | ((pixel & 0x00ff0000) >> 16) | ((pixel & 0x000000ff) << 16);
+    }
+
+    zx48k.video_cb(pixel_buffer, zx48k.width, zx48k.height, zx48k.width * 4);
 }
 
 size_t retro_serialize_size(void) {
@@ -400,40 +382,34 @@ size_t retro_get_memory_size(unsigned const id) {
     return 0;
 }
 
-static uint8_t zx48k_cpu1_region1_peek(void* ud, uint64_t address) {
-    zx48k_t* const self = (zx48k_t*)ud;
-
+static uint8_t main_region_peek(uint64_t address) {
     switch (address >> 14) {
-        case 0: return self->zx.rom[0][address & 0x3fff];
-        case 1: return self->zx.ram[0][address & 0x3fff];
-        case 2: return self->zx.ram[1][address & 0x3fff];
-        case 3: return self->zx.ram[2][address & 0x3fff];
+        case 0: return zx48k.zx.rom[0][address & 0x3fff];
+        case 1: return zx48k.zx.ram[0][address & 0x3fff];
+        case 2: return zx48k.zx.ram[1][address & 0x3fff];
+        case 3: return zx48k.zx.ram[2][address & 0x3fff];
     }
 
     return 0;
 }
 
-static void zx48k_cpu1_region1_poke(void* ud, uint64_t address, uint8_t value) {
-    zx48k_t* const self = (zx48k_t*)ud;
-
+static void main_region_poke(uint64_t address, uint8_t value) {
     switch (address >> 14) {
-        case 0: self->zx.rom[0][address & 0x3fff] = value; break;
-        case 1: self->zx.ram[0][address & 0x3fff] = value; break;
-        case 2: self->zx.ram[1][address & 0x3fff] = value; break;
-        case 3: self->zx.ram[2][address & 0x3fff] = value; break;
+        case 0: zx48k.zx.rom[0][address & 0x3fff] = value; break;
+        case 1: zx48k.zx.ram[0][address & 0x3fff] = value; break;
+        case 2: zx48k.zx.ram[1][address & 0x3fff] = value; break;
+        case 3: zx48k.zx.ram[2][address & 0x3fff] = value; break;
     }
 }
 
-static hc_Memory const zx48k_cpu1_region = {
+static hc_Memory const main_region = {
     /* id, description, alignment, base_address, size */
     "cpu", "Main", 1, 0, 65536,
-    /* peek, poke, set_watchpoint */
-    zx48k_cpu1_region1_peek, zx48k_cpu1_region1_poke, NULL,
     /* break_points, num_break_points */
     NULL, 0
 };
 
-static uint64_t zx48k_cpu1_get_register(void* ud, unsigned reg) {
+static uint64_t main_get_register(unsigned reg) {
     switch (reg) {
         case HC_Z80_A: return z80_a(&zx48k.zx.cpu);
         case HC_Z80_F: return z80_f(&zx48k.zx.cpu);
@@ -456,7 +432,7 @@ static uint64_t zx48k_cpu1_get_register(void* ud, unsigned reg) {
     }
 }
 
-static void zx48k_cpu1_set_register(void* ud, unsigned reg, uint64_t value) {
+static void main_set_register(unsigned reg, uint64_t value) {
     switch (reg) {
         case HC_Z80_A: z80_set_a(&zx48k.zx.cpu, value); break;
         case HC_Z80_F: z80_set_f(&zx48k.zx.cpu, value); break;
@@ -479,43 +455,70 @@ static void zx48k_cpu1_set_register(void* ud, unsigned reg, uint64_t value) {
     }
 }
 
-static void zx48k_cpu1_step_into(void* ud) {
-    zx48k_step_into();
-}
-
-static hc_Cpu const zx48k_cpu1 = {
-    /* description, type, is_main */
-    "Main CPU", HC_CPU_Z80, 1,
+static hc_Cpu const main = {
+    /* id, description, type, is_main */
+    "main", "Main CPU", HC_CPU_Z80, 1,
     /* memory_region */
-    &zx48k_cpu1_region,
-    /* get_register, set_register, set_reg_breakpoint */
-    zx48k_cpu1_get_register, zx48k_cpu1_set_register, NULL,
-    /* step_into, step_over, step_out */
-    zx48k_cpu1_step_into, NULL, NULL,
-    /* set_exec_breakpoint, set_io_watchpoint, set_int_breakpoint */
-    NULL, NULL, NULL,
+    &main_region,
     /* break_points, num_break_points */
     NULL, 0
 };
 
-static hc_Cpu const* zx48k_cpus[] = {
-    &zx48k_cpu1
+static hc_Cpu const* cpus[] = {
+    &main
 };
 
-static hc_System const zx48k_system = {
+static hc_System const hcsystem = {
     /* description */
     "ZX Spectrum 48K",
     /* cpus, num_cpus */
-    zx48k_cpus, sizeof(zx48k_cpus) / sizeof(zx48k_cpus[0]),
+    cpus, sizeof(cpus) / sizeof(cpus[0]),
     /* memory_regions, num_memory_regions */
     NULL, 0,
     /* break_points, num_break_points */
     NULL, 0
 };
 
+static uint8_t peek(hc_Memory const* memory, uint64_t address) {
+    if (memory == &main_region) {
+        return main_region_peek(address);
+    }
+
+    return 0;
+}
+
+static int poke(hc_Memory const* memory, uint64_t address, uint8_t value) {
+    if (memory == &main_region) {
+        main_region_poke(address, value);
+        return 1;
+    }
+
+    return 0;
+}
+
+static uint64_t get_register(hc_Cpu const* cpu, unsigned reg) {
+    if (cpu == &main) {
+        return main_get_register(reg);
+    }
+
+    return 0;
+}
+
+static void set_register(hc_Cpu const* cpu, unsigned reg, uint64_t value) {
+    if (cpu == &main) {
+        main_set_register(reg, value);
+    }
+}
+
 static void* hc_set_debuggger(hc_DebuggerIf* const debugger_if) {
     zx48k.debugger_if = debugger_if;
+
     debugger_if->core_api_version = HC_API_VERSION;
-    debugger_if->v1.system = &zx48k_system;
+    debugger_if->system = &hcsystem;
+    debugger_if->v1.peek = peek;
+    debugger_if->v1.poke = poke;
+    debugger_if->v1.get_register = get_register;
+    debugger_if->v1.set_register = set_register;
+
     return &zx48k;
 }
